@@ -1,0 +1,19 @@
+{
+  "name": "fieldroute-ai-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run web:dev",
+    "web:dev": "npm run dev --workspace=apps/web",
+    "web:build": "npm run build --workspace=apps/web",
+    "web:start": "npm run start --workspace=apps/web",
+    "web:lint": "npm run lint --workspace=apps/web",
+    "mobile:dev": "npm run start --workspace=apps/mobile",
+    "mobile:ios": "npm run ios --workspace=apps/mobile",
+    "mobile:android": "npm run android --workspace=apps/mobile",
+    "mobile:tsc": "npx tsc --noEmit --project apps/mobile/tsconfig.json"
+  }
+}

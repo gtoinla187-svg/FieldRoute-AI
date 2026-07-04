@@ -1,0 +1,13 @@
+.gcloudignore
+.git
+.hg
+.svn
+node_modules/
+apps/web/node_modules/
+apps/mobile/node_modules/
+apps/web/.next/
+apps/mobile/.expo/
+.DS_Store
+**/node_modules/
+**/.next/
+**/.expo/
