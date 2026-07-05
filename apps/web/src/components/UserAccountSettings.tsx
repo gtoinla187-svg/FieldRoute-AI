@@ -331,6 +331,11 @@ export default function UserAccountSettings() {
   const handleLogout = () => {
     localStorage.removeItem("sfi_user_token");
     localStorage.removeItem("sfi_user_name");
+    localStorage.removeItem("fieldroute_saved_reports");
+    localStorage.removeItem("fieldroute_report_company_name");
+    localStorage.removeItem("fieldroute_report_company_website");
+    localStorage.removeItem("fieldroute_report_markdown");
+    localStorage.removeItem("fieldroute_new_trip_draft");
     sessionStorage.removeItem("sfi_admin_token");
     sessionStorage.removeItem("sfi_admin_user");
     setIsOpen(false);

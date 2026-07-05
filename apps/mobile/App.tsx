@@ -222,6 +222,7 @@ export default function App() {
   const [tempPassword, setTempPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   const authenticatedFetch = async (url: string, options: any = {}) => {
     const token = authToken || await AsyncStorage.getItem('fieldroute_user_token');
@@ -500,6 +501,15 @@ export default function App() {
       setAuthToken(data.token);
       setAuthUserName(data.username);
       setUserName(data.username);
+
+      // Clear any previous user's local caches first to prevent leaks
+      await AsyncStorage.removeItem('fieldroute_saved_trips');
+      await AsyncStorage.removeItem('fieldroute_saved_reports');
+      setSavedTrips([]);
+      setSavedReports([]);
+      setActiveTrip(null);
+      setActiveReport(null);
+
       setIsAuthenticated(true);
       
       // Update local storage settings as well
@@ -513,7 +523,43 @@ export default function App() {
       }
       await AsyncStorage.setItem('fieldroute_user_settings', JSON.stringify(currentSettings));
 
-      Alert.alert("Success", `Logged in successfully as "${data.username}".`);
+      // Fetch fresh data for the newly logged-in user
+      let syncedTrips = [];
+      let syncedReports = [];
+
+      try {
+        const tripsRes = await fetch(`${targetServerUrl}/api/trips`, {
+          headers: { "Authorization": `Bearer ${data.token}` }
+        });
+        if (tripsRes.ok) {
+          const tripsData = await tripsRes.json();
+          if (tripsData?.trips) {
+            syncedTrips = sanitizeTrips(tripsData.trips);
+            await AsyncStorage.setItem('fieldroute_saved_trips', JSON.stringify(syncedTrips));
+            setSavedTrips(syncedTrips);
+          }
+        }
+      } catch (e) {
+        console.warn("Initial login trips sync failed:", e);
+      }
+
+      try {
+        const reportsRes = await fetch(`${targetServerUrl}/api/bd-consultant/reports`, {
+          headers: { "Authorization": `Bearer ${data.token}` }
+        });
+        if (reportsRes.ok) {
+          const reportsData = await reportsRes.json();
+          if (reportsData?.reports) {
+            syncedReports = reportsData.reports;
+            await AsyncStorage.setItem('fieldroute_saved_reports', JSON.stringify(syncedReports));
+            setSavedReports(syncedReports);
+          }
+        }
+      } catch (e) {
+        console.warn("Initial login reports sync failed:", e);
+      }
+
+      Alert.alert("Success", `Logged in and synced data for "${data.username}".`);
     } catch (err: any) {
       console.error(err);
       setLoginError(err?.message || "Connection failed.");
@@ -535,9 +581,16 @@ export default function App() {
           onPress: async () => {
             await AsyncStorage.removeItem('fieldroute_user_token');
             await AsyncStorage.removeItem('fieldroute_user_name');
+            await AsyncStorage.removeItem('fieldroute_saved_trips');
+            await AsyncStorage.removeItem('fieldroute_saved_reports');
             setAuthToken(null);
             setAuthUserName("");
+            setUserName("");
             setIsAuthenticated(false);
+            setSavedTrips([]);
+            setSavedReports([]);
+            setActiveTrip(null);
+            setActiveReport(null);
           }
         }
       ]
@@ -564,6 +617,35 @@ export default function App() {
           setUserName(storedUserName || "User");
           setIsAuthenticated(true);
           Alert.alert("Success", "Authenticated via biometrics!");
+
+          // Trigger background sync on biometric sign-in
+          (async () => {
+            try {
+              const tripsRes = await fetch(`${storedServerUrl}/api/trips`, {
+                headers: { "Authorization": `Bearer ${storedToken}` }
+              });
+              if (tripsRes.ok) {
+                const tripsData = await tripsRes.json();
+                if (tripsData?.trips) {
+                  const sanitized = sanitizeTrips(tripsData.trips);
+                  await AsyncStorage.setItem('fieldroute_saved_trips', JSON.stringify(sanitized));
+                  setSavedTrips(sanitized);
+                }
+              }
+            } catch {}
+            try {
+              const reportsRes = await fetch(`${storedServerUrl}/api/bd-consultant/reports`, {
+                headers: { "Authorization": `Bearer ${storedToken}` }
+              });
+              if (reportsRes.ok) {
+                const reportsData = await reportsRes.json();
+                if (reportsData?.reports) {
+                  await AsyncStorage.setItem('fieldroute_saved_reports', JSON.stringify(reportsData.reports));
+                  setSavedReports(reportsData.reports);
+                }
+              }
+            } catch {}
+          })();
         } else {
           Alert.alert("Error", "No saved credentials found. Please sign in manually once first.");
         }
@@ -1848,17 +1930,19 @@ async function loadData() {
               <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 6, textAlign: 'center' }}>Enter your server connection and credentials to authenticate</Text>
             </View>
 
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>API Server URL</Text>
-              <TextInput
-                style={{ backgroundColor: '#0f172a', color: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 14, paddingVertical: 12, fontSize: 13 }}
-                value={tempServerUrl}
-                placeholder="https://..."
-                placeholderTextColor="#64748b"
-                onChangeText={setTempServerUrl}
-                autoCapitalize="none"
-              />
-            </View>
+            {showAdvancedSettings && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>API Server URL</Text>
+                <TextInput
+                  style={{ backgroundColor: '#0f172a', color: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 14, paddingVertical: 12, fontSize: 13 }}
+                  value={tempServerUrl}
+                  placeholder="https://..."
+                  placeholderTextColor="#64748b"
+                  onChangeText={setTempServerUrl}
+                  autoCapitalize="none"
+                />
+              </View>
+            )}
 
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>Username</Text>
@@ -1913,6 +1997,15 @@ async function loadData() {
                 </Text>
               </TouchableOpacity>
             ) : null}
+
+            <TouchableOpacity 
+              onPress={() => setShowAdvancedSettings(!showAdvancedSettings)}
+              style={{ marginTop: 16, alignItems: 'center' }}
+            >
+              <Text style={{ fontSize: 11, color: '#64748b', textDecorationLine: 'underline' }}>
+                {showAdvancedSettings ? "Hide Connection Settings" : "Configure Connection Server"}
+              </Text>
+            </TouchableOpacity>
 
           </View>
         </ScrollView>

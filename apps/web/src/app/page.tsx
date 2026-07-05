@@ -208,6 +208,44 @@ export default function HomePage() {
           </form>
         </div>
 
+        {/* Sales Routing Workspace Section */}
+        <div className="mt-14 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 p-6 md:p-8 shadow-2xl">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400 font-bold text-xl">
+              🗺️
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-450 dark:text-slate-500">
+                Sales Routing Workspace
+              </p>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+                Plan smarter field routes with a clean workflow.
+              </h1>
+            </div>
+          </div>
+
+          <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 max-w-2xl">
+            Create trips, organize prospect stops, and review saved routes in one
+            focused workspace built for field sales teams.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-4">
+            <Link
+              href="/trip/new"
+              className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition"
+            >
+              Create New Trip
+            </Link>
+
+            <Link
+              href="/trip"
+              className="rounded-xl border border-slate-300 dark:border-slate-700 px-5 py-3 text-sm font-semibold text-slate-650 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-450 dark:hover:border-slate-600 transition"
+            >
+              View Saved Trips
+            </Link>
+          </div>
+        </div>
+
         {/* Saved Reports Modal Overlay */}
         {isViewSavedModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -299,44 +337,6 @@ export default function HomePage() {
             </div>
           </div>
         )}
-
-        {/* Sales Routing Workspace Section */}
-        <div className="mt-14 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 p-6 md:p-8 shadow-2xl">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400 font-bold text-xl">
-              🗺️
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-450 dark:text-slate-500">
-                Sales Routing Workspace
-              </p>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
-                Plan smarter field routes with a clean workflow.
-              </h1>
-            </div>
-          </div>
-
-          <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 max-w-2xl">
-            Create trips, organize prospect stops, and review saved routes in one
-            focused workspace built for field sales teams.
-          </p>
-
-          <div className="mt-6 flex flex-wrap gap-4">
-            <Link
-              href="/trip/new"
-              className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition"
-            >
-              Create New Trip
-            </Link>
-
-            <Link
-              href="/trip"
-              className="rounded-xl border border-slate-300 dark:border-slate-700 px-5 py-3 text-sm font-semibold text-slate-650 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-450 dark:hover:border-slate-600 transition"
-            >
-              View Saved Trips
-            </Link>
-          </div>
-        </div>
       </main>
     </div>
   );

@@ -32,6 +32,14 @@ export default function AdminDashboardPage() {
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isCreateAccountOpen, setIsCreateAccountOpen] = useState(false);
+
+  // User search form states
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchUsername, setSearchUsername] = useState("");
+  const [searchPeriod, setSearchPeriod] = useState<"1m" | "3m" | "6m" | "1y">("1m");
+  const [searchResults, setSearchResults] = useState<LogRecord[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const router = useRouter();
 
@@ -116,6 +124,11 @@ export default function AdminDashboardPage() {
       
       // Refresh list
       fetchConfig(token);
+
+      setTimeout(() => {
+        setIsCreateAccountOpen(false);
+        setFormSuccess("");
+      }, 1500);
     } catch (err: any) {
       setFormError(err?.message || "Failed to submit new user form.");
     } finally {
@@ -126,7 +139,7 @@ export default function AdminDashboardPage() {
   const handleManualResetPassword = async (targetUsername: string) => {
     const newPass = window.prompt(`Enter new password for user "${targetUsername}" (minimum 6 characters):`);
     if (newPass === null) return; // Cancelled
-    if (newPass.trim().length < 6) {
+    if (newPass.length < 6) {
       alert("Error: Password must be at least 6 characters long.");
       return;
     }
@@ -147,7 +160,7 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           action: "reset_password",
           username: targetUsername,
-          password: newPass.trim()
+          password: newPass
         }),
       });
 
@@ -200,6 +213,58 @@ export default function AdminDashboardPage() {
     } catch (err: any) {
       alert(err?.message || "Failed to set reset email.");
     }
+  };
+
+  const handleSearchLogs = () => {
+    if (!searchUsername.trim()) {
+      alert("Please enter a username to search.");
+      return;
+    }
+    
+    const limitDate = new Date();
+    if (searchPeriod === "1m") {
+      limitDate.setMonth(limitDate.getMonth() - 1);
+    } else if (searchPeriod === "3m") {
+      limitDate.setMonth(limitDate.getMonth() - 3);
+    } else if (searchPeriod === "6m") {
+      limitDate.setMonth(limitDate.getMonth() - 6);
+    } else if (searchPeriod === "1y") {
+      limitDate.setFullYear(limitDate.getFullYear() - 1);
+    }
+
+    const filtered = logs.filter((log) => {
+      const matchesUser = log.username.toLowerCase() === searchUsername.trim().toLowerCase();
+      const logDate = new Date(log.timestamp);
+      const matchesDate = logDate >= limitDate;
+      return matchesUser && matchesDate;
+    });
+
+    setSearchResults(filtered);
+    setHasSearched(true);
+  };
+
+  const handleExportCSV = () => {
+    if (searchResults.length === 0) return;
+    
+    const headers = ["Timestamp", "Username", "IP Address", "Status", "User Agent"];
+    const rows = searchResults.map((log) => [
+      new Date(log.timestamp).toLocaleString(),
+      log.username,
+      log.ip,
+      log.status,
+      `"${log.userAgent.replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `audit_report_${searchUsername.trim().toLowerCase()}_${searchPeriod}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDeleteUser = async (usernameToDelete: string) => {
@@ -275,7 +340,11 @@ export default function AdminDashboardPage() {
         {/* Tab Controls */}
         <div className="flex gap-2 border-b border-slate-800 pb-px mb-8">
           <button
-            onClick={() => setActiveTab("logs")}
+            onClick={() => {
+              setActiveTab("logs");
+              setIsSearchModalOpen(false);
+              setIsCreateAccountOpen(false);
+            }}
             className={`px-5 py-3 text-sm font-semibold transition border-b-2 outline-none cursor-pointer ${
               activeTab === "logs"
                 ? "border-indigo-500 text-white"
@@ -285,7 +354,11 @@ export default function AdminDashboardPage() {
             📋 User Login Logs
           </button>
           <button
-            onClick={() => setActiveTab("users")}
+            onClick={() => {
+              setActiveTab("users");
+              setIsSearchModalOpen(false);
+              setIsCreateAccountOpen(false);
+            }}
             className={`px-5 py-3 text-sm font-semibold transition border-b-2 outline-none cursor-pointer ${
               activeTab === "users"
                 ? "border-indigo-500 text-white"
@@ -299,11 +372,24 @@ export default function AdminDashboardPage() {
         {/* Tab Contents */}
         {activeTab === "logs" ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-950/40 backdrop-blur-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-800">
-              <h2 className="text-base font-bold text-white">Login Audit Logs</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Monitors system access attempts (maximum 1,000 logs retained).
-              </p>
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-white">Login Audit Logs</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Monitors system access attempts (maximum 1,000 logs retained).
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSearchUsername("");
+                  setSearchResults([]);
+                  setHasSearched(false);
+                  setIsSearchModalOpen(true);
+                }}
+                className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2.5 text-xs font-bold text-indigo-400 hover:bg-indigo-500 hover:text-white transition cursor-pointer shadow-lg shadow-indigo-600/5 flex items-center gap-1.5"
+              >
+                🔍 User Search
+              </button>
             </div>
             
             <div className="overflow-x-auto">
@@ -358,14 +444,26 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="w-full">
             {/* User List Panel */}
-            <div className="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-950/40 backdrop-blur-sm overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-slate-800">
-                <h2 className="text-base font-bold text-white">Active System Accounts</h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  List of authorized user accounts allowed to sign in.
-                </p>
+            <div className="w-full rounded-2xl border border-slate-800 bg-slate-950/40 backdrop-blur-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-white">Active System Accounts</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    List of authorized user accounts allowed to sign in.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setFormError("");
+                    setFormSuccess("");
+                    setIsCreateAccountOpen(true);
+                  }}
+                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 transition cursor-pointer shadow-lg shadow-indigo-600/10 flex items-center gap-1.5"
+                >
+                  ➕ Create New Account
+                </button>
               </div>
 
               <div className="overflow-x-auto flex-1">
@@ -401,14 +499,14 @@ export default function AdminDashboardPage() {
                             className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-2 py-1.5 text-[9px] font-bold text-indigo-400 hover:bg-indigo-500 hover:text-white transition cursor-pointer"
                             title="Manual Reset Password"
                           >
-                            🔑 Reset PW
+                            🔑 Reset PSW
                           </button>
                           <button
                             onClick={() => handleSetResetEmail(u.username, u.email)}
                             className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 text-[9px] font-bold text-emerald-400 hover:bg-emerald-500 hover:text-white transition cursor-pointer"
                             title="Set Password Reset Email"
                           >
-                            📧 Set Email
+                            📧 Reset PSW by Email
                           </button>
                           <button
                             onClick={() => handleDeleteUser(u.username)}
@@ -424,9 +522,25 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Create User Form Panel */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/40 backdrop-blur-sm p-6 self-start">
+        {/* Create User Form Modal Popup */}
+        {activeTab === "users" && isCreateAccountOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur-xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setIsCreateAccountOpen(false);
+                  setFormError("");
+                  setFormSuccess("");
+                }}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold cursor-pointer p-1 transition"
+              >
+                ✕
+              </button>
+
               <h2 className="text-base font-bold text-white mb-2">Create New Account</h2>
               <p className="text-xs text-slate-400 mb-6 leading-relaxed">
                 Add an additional operator to the system configuration.
@@ -455,7 +569,7 @@ export default function AdminDashboardPage() {
                     placeholder="Alphanumeric, 3-20 chars"
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition"
                   />
                 </div>
 
@@ -469,7 +583,7 @@ export default function AdminDashboardPage() {
                     placeholder="e.g. operator@company.com"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition"
                   />
                 </div>
 
@@ -483,18 +597,147 @@ export default function AdminDashboardPage() {
                     placeholder="Min 6 characters"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-xs font-semibold text-white hover:bg-indigo-500 transition disabled:opacity-50 cursor-pointer"
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-xs font-semibold text-white hover:bg-indigo-500 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-indigo-600/10"
                 >
                   {submitting ? "Creating user..." : "Create Account"}
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* User Search Modal Popup */}
+        {activeTab === "logs" && isSearchModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/85 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur-xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setIsSearchModalOpen(false);
+                  setSearchUsername("");
+                  setSearchResults([]);
+                  setHasSearched(false);
+                }}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold cursor-pointer p-1 transition"
+              >
+                ✕
+              </button>
+
+              <h2 className="text-base font-bold text-white mb-2">🔍 Audit Log User Search</h2>
+              <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+                Filter and audit authentication logs for a specific operator within a selected period.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Legit Username
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. operator_username"
+                    value={searchUsername}
+                    onChange={(e) => setSearchUsername(e.target.value)}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Date Range Period
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(["1m", "3m", "6m", "1y"] as const).map((p) => {
+                      const labels = { "1m": "1 Month", "3m": "3 Months", "6m": "6 Months", "1y": "1 Year" };
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setSearchPeriod(p)}
+                          className={`rounded-lg py-2 text-[10px] font-bold text-center border transition cursor-pointer ${
+                            searchPeriod === p
+                              ? "border-indigo-500 bg-indigo-500/10 text-indigo-400"
+                              : "border-slate-800 bg-slate-950/40 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {labels[p]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSearchLogs}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-center text-xs font-semibold text-white hover:bg-indigo-500 transition cursor-pointer shadow-lg shadow-indigo-600/10"
+                >
+                  Search Logs
+                </button>
+              </div>
+
+              {/* Search Results Display Area */}
+              {hasSearched && (
+                <div className="mt-6 border-t border-slate-800 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Search Results ({searchResults.length})
+                    </h3>
+                    {searchResults.length > 0 && (
+                      <button
+                        onClick={handleExportCSV}
+                        className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500 hover:text-white transition cursor-pointer shadow-lg shadow-emerald-600/5 flex items-center gap-1.5"
+                      >
+                        📥 Export Report
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-[200px] overflow-y-auto border border-slate-800 rounded-xl bg-slate-950/60">
+                    {searchResults.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-500">
+                        No matching login events found for "{searchUsername}" in the selected date range.
+                      </div>
+                    ) : (
+                      <table className="w-full text-[11px] text-left border-collapse">
+                        <thead className="sticky top-0 bg-slate-900 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800 z-10">
+                          <tr>
+                            <th className="px-4 py-2">Timestamp</th>
+                            <th className="px-4 py-2">IP Address</th>
+                            <th className="px-4 py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800 bg-transparent text-slate-300">
+                          {searchResults.map((r, idx) => (
+                            <tr key={idx} className="hover:bg-slate-900/40">
+                              <td className="px-4 py-2 whitespace-nowrap">
+                                {new Date(r.timestamp).toLocaleString()}
+                              </td>
+                              <td className="px-4 py-2 font-mono text-[10px]">
+                                {r.ip}
+                              </td>
+                              <td className="px-4 py-2 capitalize">
+                                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                  r.status === "success" ? "bg-emerald-500" : "bg-red-500"
+                                }`} />
+                                {r.status}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
