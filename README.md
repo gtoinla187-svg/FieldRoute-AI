@@ -34,24 +34,3 @@ fieldroute-ai/
 ├── package.json         # Workspace project configurations
 └── README.md            # Root developer setup guide
 
-🚀 Setup & Execution Instructions
-Prerequisites
-Node.js version v18 or higher installed.
-iOS Simulator (for macOS) or Android Emulator booted.
-Step 1: Install Dependencies
-Run the workspace-wide installation command in the project root
-npm install
-Step 2: Running the Web App
-Start the Next.js development server:
-npm run dev --workspace=apps/web
-Open your browser to: http://localhost:3000
-Live Production URL: https://web-six-eta-84.vercel.app
-Step 3: Running the Mobile App
-Boot the Expo dev server:
-npx expo start --ios --clear --workspace=apps/mobile
-The Metro server will start on port 8081 and automatically push the JS bundle to your booted simulator.
-🔑 Database Credentials & Environment Configuration
-The application connects to a Supabase PostgreSQL instance using the following shared keys (.env.local):
-
-Supabase URL: https://lievjhktyxytznjxakbt.supabase.co
-Publishable Key: sb_publishable_SpwefIoCoUwu69WRc0Otdw__MeXsfuv
